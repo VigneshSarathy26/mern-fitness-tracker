@@ -1,0 +1,753 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-config
+data:
+  KAFKA_NODE_ID: "1"
+  KAFKA_PROCESS_ROLES: "broker,controller"
+  KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+  KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+  KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+  KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+  CLUSTER_ID: "Mk3OEYBSD34fcwNTJENDM2Qkkey"
+  KAFKA_BROKERS_NOTIFICATION: "kafka:9092"
+  NOTIFICATION_PORT: "5006"
+  GOAL_PORT: "5007"
+  MONGO_URI_GOAL: "mongodb://mongodb:27017/goal_db"
+  ANALYTICS_PORT: "5005"
+  MONGO_URI_ANALYTICS: "mongodb://mongodb:27017/analytics_db"
+  NUTRITION_PORT: "5004"
+  MONGO_URI_NUTRITION: "mongodb://mongodb:27017/nutrition_db"
+  WORKOUT_PORT: "5003"
+  MONGO_URI_WORKOUT: "mongodb://mongodb:27017/workout_db"
+  USER_PORT: "5002"
+  MONGO_URI_USER: "mongodb://mongodb:27017/user_db"
+  AUTH_PORT: "5001"
+  MONGO_URI_AUTH: "mongodb://mongodb:27017/auth_db"
+  REACT_APP_API_URL: "http://localhost/api"
+  NODE_ENV: "development"
+  AUTH_SERVICE_URL: "http://auth-service:5001"
+  USER_SERVICE_URL: "http://user-service:5002"
+  WORKOUT_SERVICE_URL: "http://workout-service:5003"
+  NUTRITION_SERVICE_URL: "http://nutrition-service:5004"
+  ANALYTICS_SERVICE_URL: "http://analytics-service:5005"
+  GOAL_SERVICE_URL: "http://goal-service:5007"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+data:
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt
+type: Opaque
+data:
+  token: UVdFUlRZVUlPUEFTREZHSEpLTFpYQ1ZCTk0xMjM0NTY3ODkwYWJjZGVmQUJDREVGR0g=
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  labels:
+    app: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+        - name: kafka
+          image: apache/kafka:3.7.0
+          ports:
+            - containerPort: 9092
+              name: plaintext
+            - containerPort: 9093
+              name: controller
+          env:
+          - name: KAFKA_NODE_ID
+            valueFrom:
+              configMapKeyRef:
+                name: kafka-config
+                key: KAFKA_NODE_ID
+          - name: KAFKA_PROCESS_ROLES
+            valueFrom:
+              configMapKeyRef:
+                name: kafka-config
+                key: KAFKA_PROCESS_ROLES
+          - name: KAFKA_LISTENERS
+            valueFrom:
+              configMapKeyRef:
+                name: kafka-config
+                key: KAFKA_LISTENERS
+          - name: KAFKA_ADVERTISED_LISTENERS
+            valueFrom:
+              configMapKeyRef:
+                name: kafka-config
+                key: KAFKA_ADVERTISED_LISTENERS
+          - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+            valueFrom:
+              configMapKeyRef:
+                name: kafka-config
+                key: KAFKA_CONTROLLER_QUORUM_VOTERS
+          - name: KAFKA_CONTROLLER_LISTENER_NAMES
+            valueFrom:
+              configMapKeyRef:
+                name: kafka-config
+                key: KAFKA_CONTROLLER_LISTENER_NAMES
+          - name: CLUSTER_ID
+            valueFrom:
+              configMapKeyRef:
+                name: kafka-config
+                key: CLUSTER_ID
+          - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+            value: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+          - name: KAFKA_INTER_BROKER_LISTENER_NAME
+            value: PLAINTEXT
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+spec:
+  selector:
+    app: kafka
+  ports:
+    - protocol: TCP
+      port: 9092
+      targetPort: 9092
+      name: plaintext
+    - protocol: TCP
+      port: 9093
+      targetPort: 9093
+      name: controller
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+spec:
+  selector:
+    matchLabels:
+      app: mongodb
+  serviceName: mongodb
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:6.0
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: db
+          mountPath: /data/db
+  volumeClaimTemplates:
+  - metadata:
+      name: db
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  selector:
+    app: redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7.2-alpine
+        ports:
+        - containerPort: 6379
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification
+  template:
+    metadata:
+      labels:
+        app: notification
+    spec:
+      containers:
+      - name: notification
+        image: notification:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5006
+        env:
+        - name: KAFKA_BROKERS
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: KAFKA_BROKERS_NOTIFICATION
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: NOTIFICATION_PORT
+          
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+spec:
+  selector:
+    app: notification
+  ports:
+    - protocol: TCP
+      port: 5006
+      targetPort: 5006
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: goal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: goal
+  template:
+    metadata:
+      labels:
+        app: goal
+    spec:
+      containers:
+      - name: goal
+        image: goal:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5007
+        env:
+        - name: MONGO_URI
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: MONGO_URI_GOAL
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: GOAL_PORT
+--- 
+apiVersion: v1
+kind: Service
+metadata:
+  name: goal-service
+spec:
+  selector:
+    app: goal
+  ports:
+    - protocol: TCP
+      port: 5007
+      targetPort: 5007
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics
+  template:
+    metadata:
+      labels:
+        app: analytics
+    spec:
+      containers:
+      - name: analytics
+        image: analytics:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5005
+        env:
+        - name: MONGO_URI
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: MONGO_URI_ANALYTICS
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: ANALYTICS_PORT
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: redis-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: redis-config
+              key: REDIS_PORT
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+spec:
+  selector:
+    app: analytics
+  ports:
+    - protocol: TCP
+      port: 5005
+      targetPort: 5005
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nutrition
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nutrition
+  template:
+    metadata:
+      labels:
+        app: nutrition
+    spec:
+      containers:
+      - name: nutrition
+        image: nutrition:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5004
+        env:
+        - name: MONGO_URI
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: MONGO_URI_NUTRITION
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: NUTRITION_PORT
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nutrition-service
+spec:
+  selector:
+    app: nutrition
+  ports:
+    - protocol: TCP
+      port: 5004
+      targetPort: 5004
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workout
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workout
+  template:
+    metadata:
+      labels:
+        app: workout
+    spec:
+      containers:
+      - name: workout
+        image: workout:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5003
+        env:
+        - name: MONGO_URI
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: MONGO_URI_WORKOUT
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: WORKOUT_PORT
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: workout-service
+spec:
+  selector:
+    app: workout
+  ports:
+    - protocol: TCP
+      port: 5003
+      targetPort: 5003
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user
+  template:
+    metadata:
+      labels:
+        app: user
+    spec:
+      containers:
+      - name: user
+        image: user:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5002
+        env:
+        - name: MONGO_URI
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: MONGO_URI_USER
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: USER_PORT
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+spec:
+  selector:
+    app: user
+  ports:
+    - protocol: TCP
+      port: 5002
+      targetPort: 5002
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+      - name: auth
+        image: auth:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5001
+        env:
+        - name: MONGO_URI
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: MONGO_URI_AUTH
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: AUTH_PORT
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: jwt
+              key: token
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+spec:
+  selector:
+    app: auth
+  ports:
+    - protocol: TCP
+      port: 5001
+      targetPort: 5001
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: frontend:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+        env:
+        - name: REACT_APP_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: REACT_APP_API_URL
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: api-gateway
+        image: api-gateway:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: NODE_ENV
+        - name: AUTH_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: AUTH_SERVICE_URL
+        - name: USER_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: USER_SERVICE_URL
+        - name: WORKOUT_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: WORKOUT_SERVICE_URL
+        - name: NUTRITION_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: NUTRITION_SERVICE_URL
+        - name: ANALYTICS_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: ANALYTICS_SERVICE_URL
+        - name: GOAL_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: GOAL_SERVICE_URL
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-service
+spec:
+  selector:
+    app: api-gateway
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: |
+    worker_processes auto;
+
+    events {
+        worker_connections 2048;
+    }
+
+    http {
+
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        sendfile on;
+
+        upstream frontend {
+            server frontend-service:3000;
+        }
+
+        upstream api_gateway {
+            server api-gateway-service:8080;
+        }
+
+        server {
+            listen 80;
+
+            location / {
+                proxy_pass http://frontend;
+
+                proxy_http_version 1.1;
+
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+
+            location /api/ {
+                proxy_pass http://api_gateway/;
+
+                proxy_http_version 1.1;
+
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+
+            location /nginx-health {
+                return 200 "healthy";
+                add_header Content-Type text/plain;
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: nginx-config-volume
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+      volumes:
+      - name: nginx-config-volume
+        configMap:
+          name: nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
