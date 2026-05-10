@@ -226,8 +226,7 @@ spec:
     spec:
       containers:
       - name: notification
-        image: notification:latest
-        imagePullPolicy: Never
+        image: fitnesstracker.azurecr.io/fitnesstracker/mern-fitness-tracker-notification-service:latest
         ports:
         - containerPort: 5006
         env:
@@ -271,8 +270,7 @@ spec:
     spec:
       containers:
       - name: goal
-        image: goal:latest
-        imagePullPolicy: Never
+        image: fitnesstracker.azurecr.io/fitnesstracker/mern-fitness-tracker-goal-service:latest
         ports:
         - containerPort: 5007
         env:
@@ -315,8 +313,7 @@ spec:
     spec:
       containers:
       - name: analytics
-        image: analytics:latest
-        imagePullPolicy: Never
+        image: fitnesstracker.azurecr.io/fitnesstracker/mern-fitness-tracker-analytics-service:latest
         ports:
         - containerPort: 5005
         env:
@@ -371,8 +368,7 @@ spec:
     spec:
       containers:
       - name: nutrition
-        image: nutrition:latest
-        imagePullPolicy: Never
+        image: fitnesstracker.azurecr.io/fitnesstracker/mern-fitness-tracker-nutrition-service:latest
         ports:
         - containerPort: 5004
         env:
@@ -417,8 +413,7 @@ spec:
     spec:
       containers:
       - name: workout
-        image: workout:latest
-        imagePullPolicy: Never
+        image: fitnesstracker.azurecr.io/fitnesstracker/mern-fitness-tracker-workout-service:latest
         ports:
         - containerPort: 5003
         env:
@@ -463,8 +458,7 @@ spec:
     spec:
       containers:
       - name: user
-        image: user:latest
-        imagePullPolicy: Never
+        image: fitnesstracker.azurecr.io/fitnesstracker/mern-fitness-tracker-user-service:latest
         ports:
         - containerPort: 5002
         env:
@@ -507,8 +501,7 @@ spec:
     spec:
       containers:
       - name: auth
-        image: auth:latest
-        imagePullPolicy: Never
+        image: fitnesstracker.azurecr.io/fitnesstracker/mern-fitness-tracker-auth-service:latest
         ports:
         - containerPort: 5001
         env:
@@ -557,8 +550,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: frontend:latest
-        imagePullPolicy: Never
+        image: fitnesstracker.azurecr.io/fitnesstracker/mern-fitness-tracker-frontend:latest
         ports:
         - containerPort: 3000
         env:
@@ -598,8 +590,7 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: api-gateway:latest
-        imagePullPolicy: Never
+        image: fitnesstracker.azurecr.io/fitnesstracker/mern-fitness-tracker-api-gateway:latest
         ports:
         - containerPort: 8080
         env:
@@ -751,3 +742,4 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
+  type: LoadBalancer
